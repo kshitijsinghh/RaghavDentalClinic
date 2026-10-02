@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getClientId, isAllowed, storeUser } from '../auth';
+import { getClientId, looksAllowed, signInWithGoogleToken } from '../auth';
 
 export default function Login({ onAuth }) {
   const [error, setError] = useState('');
@@ -18,18 +18,25 @@ export default function Login({ onAuth }) {
       headers: { Authorization: 'Bearer ' + accessToken },
     })
       .then((r) => r.json())
-      .then((info) => {
+      .then(async (info) => {
         const email = (info.email || '').toLowerCase();
-        if (!isAllowed(email)) {
+        // Local hint only — it saves a round trip for an obvious mistake. The
+        // allow-list that actually decides lives server-side.
+        if (!looksAllowed(email)) {
           setError('Access denied — ' + email + ' is not authorised.');
           setChecking(false);
           return;
         }
         const user = { email, name: info.name || email, picture: info.picture || '' };
-        storeUser(user);
+        // Trade Google's token for our own session. Google is not involved
+        // again until this session ends.
+        await signInWithGoogleToken(accessToken, user);
         onAuth(user);
       })
-      .catch(() => { setError('Something went wrong, please try again'); setChecking(false); });
+      .catch((err) => {
+        setError(err && err.message ? err.message : 'Something went wrong, please try again');
+        setChecking(false);
+      });
   }, [onAuth]);
 
   function handleSignIn() {
@@ -70,13 +77,13 @@ export default function Login({ onAuth }) {
           fontFamily: "'Bricolage Grotesque'", fontWeight: 700, fontSize: 24,
           color: '#0e3b39', margin: '0 0 4px',
         }}>
-          Raghav Dental Care
+          PatientPad
         </h1>
         <p style={{
           fontSize: 12, letterSpacing: '.15em', textTransform: 'uppercase',
           color: '#5c7a76', fontWeight: 600, margin: '0 0 28px',
         }}>
-          Clinic Console
+          Raghav Dental Care
         </p>
 
         {checking ? (
